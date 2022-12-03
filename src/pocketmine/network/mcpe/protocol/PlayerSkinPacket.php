@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\entity\Skin;
 use pocketmine\network\mcpe\NetworkSession;
@@ -56,7 +56,7 @@ class PlayerSkinPacket extends DataPacket{
 
 		$this->skin = new Skin($skinId, $skinData, $capeData, $geometryModel, $geometryData);
 
-		$this->premiumSkin = $this->getBool();
+		$this->premiumSkin = (($this->get(1) !== "\x00"));
 	}
 
 	protected function encodePayload(){
@@ -70,7 +70,7 @@ class PlayerSkinPacket extends DataPacket{
 		$this->putString($this->skin->getGeometryName());
 		$this->putString($this->skin->getGeometryData());
 
-		$this->putBool($this->premiumSkin);
+		($this->buffer .= ($this->premiumSkin ? "\x01" : "\x00"));
 	}
 
 	public function handle(NetworkSession $session) : bool{

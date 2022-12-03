@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 
 use pocketmine\math\Vector3;
@@ -157,8 +157,8 @@ class StartGamePacket extends DataPacket{
 
 		$this->playerPosition = $this->getVector3();
 
-		$this->pitch = $this->getLFloat();
-		$this->yaw = $this->getLFloat();
+		$this->pitch = ((\unpack("g", $this->get(4))[1]));
+		$this->yaw = ((\unpack("g", $this->get(4))[1]));
 
 		//Level settings
 		$this->seed = $this->getVarInt();
@@ -167,52 +167,52 @@ class StartGamePacket extends DataPacket{
 		$this->worldGamemode = $this->getVarInt();
 		$this->difficulty = $this->getVarInt();
 		$this->getBlockPosition($this->spawnX, $this->spawnY, $this->spawnZ);
-		$this->hasAchievementsDisabled = $this->getBool();
+		$this->hasAchievementsDisabled = (($this->get(1) !== "\x00"));
 		$this->time = $this->getVarInt();
-		$this->eduMode = $this->getBool();
-		$this->hasEduFeaturesEnabled = $this->getBool();
-		$this->rainLevel = $this->getLFloat();
-		$this->lightningLevel = $this->getLFloat();
-		$this->hasConfirmedPlatformLockedContent = $this->getBool();
-		$this->isMultiplayerGame = $this->getBool();
-		$this->hasLANBroadcast = $this->getBool();
+		$this->eduMode = (($this->get(1) !== "\x00"));
+		$this->hasEduFeaturesEnabled = (($this->get(1) !== "\x00"));
+		$this->rainLevel = ((\unpack("g", $this->get(4))[1]));
+		$this->lightningLevel = ((\unpack("g", $this->get(4))[1]));
+		$this->hasConfirmedPlatformLockedContent = (($this->get(1) !== "\x00"));
+		$this->isMultiplayerGame = (($this->get(1) !== "\x00"));
+		$this->hasLANBroadcast = (($this->get(1) !== "\x00"));
 		$this->xboxLiveBroadcastMode = $this->getVarInt();
 		$this->platformBroadcastMode = $this->getVarInt();
-		$this->commandsEnabled = $this->getBool();
-		$this->isTexturePacksRequired = $this->getBool();
+		$this->commandsEnabled = (($this->get(1) !== "\x00"));
+		$this->isTexturePacksRequired = (($this->get(1) !== "\x00"));
 		$this->gameRules = $this->getGameRules();
-		$this->hasBonusChestEnabled = $this->getBool();
-		$this->hasStartWithMapEnabled = $this->getBool();
+		$this->hasBonusChestEnabled = (($this->get(1) !== "\x00"));
+		$this->hasStartWithMapEnabled = (($this->get(1) !== "\x00"));
 		$this->defaultPlayerPermission = $this->getVarInt();
-		$this->serverChunkTickRadius = $this->getLInt();
-		$this->hasLockedBehaviorPack = $this->getBool();
-		$this->hasLockedResourcePack = $this->getBool();
-		$this->isFromLockedWorldTemplate = $this->getBool();
-		$this->useMsaGamertagsOnly = $this->getBool();
-		$this->isFromWorldTemplate = $this->getBool();
-		$this->isWorldTemplateOptionLocked = $this->getBool();
-		$this->onlySpawnV1Villagers = $this->getBool();
+		$this->serverChunkTickRadius = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+		$this->hasLockedBehaviorPack = (($this->get(1) !== "\x00"));
+		$this->hasLockedResourcePack = (($this->get(1) !== "\x00"));
+		$this->isFromLockedWorldTemplate = (($this->get(1) !== "\x00"));
+		$this->useMsaGamertagsOnly = (($this->get(1) !== "\x00"));
+		$this->isFromWorldTemplate = (($this->get(1) !== "\x00"));
+		$this->isWorldTemplateOptionLocked = (($this->get(1) !== "\x00"));
+		$this->onlySpawnV1Villagers = (($this->get(1) !== "\x00"));
 
 		$this->levelId = $this->getString();
 		$this->worldName = $this->getString();
 		$this->premiumWorldTemplateId = $this->getString();
-		$this->isTrial = $this->getBool();
-		$this->currentTick = $this->getLLong();
+		$this->isTrial = (($this->get(1) !== "\x00"));
+		$this->currentTick = (Binary::readLLong($this->get(8)));
 
 		$this->enchantmentSeed = $this->getVarInt();
 
 		$this->blockTable = [];
 		for($i = 0, $count = $this->getUnsignedVarInt(); $i < $count; ++$i){
 			$id = $this->getString();
-			$data = $this->getSignedLShort();
-			$unknown = $this->getSignedLShort();
+			$data = ((\unpack("v", $this->get(2))[1] << 48 >> 48));
+			$unknown = ((\unpack("v", $this->get(2))[1] << 48 >> 48));
 
 			$this->blockTable[$i] = ["name" => $id, "data" => $data, "legacy_id" => $unknown];
 		}
 		$this->itemTable = [];
 		for($i = 0, $count = $this->getUnsignedVarInt(); $i < $count; ++$i){
 			$id = $this->getString();
-			$legacyId = $this->getSignedLShort();
+			$legacyId = ((\unpack("v", $this->get(2))[1] << 48 >> 48));
 
 			$this->itemTable[$id] = $legacyId;
 		}
@@ -227,8 +227,8 @@ class StartGamePacket extends DataPacket{
 
 		$this->putVector3($this->playerPosition);
 
-		$this->putLFloat($this->pitch);
-		$this->putLFloat($this->yaw);
+		($this->buffer .= (\pack("g", $this->pitch)));
+		($this->buffer .= (\pack("g", $this->yaw)));
 
 		//Level settings
 		$this->putVarInt($this->seed);
@@ -237,37 +237,37 @@ class StartGamePacket extends DataPacket{
 		$this->putVarInt($this->worldGamemode);
 		$this->putVarInt($this->difficulty);
 		$this->putBlockPosition($this->spawnX, $this->spawnY, $this->spawnZ);
-		$this->putBool($this->hasAchievementsDisabled);
+		($this->buffer .= ($this->hasAchievementsDisabled ? "\x01" : "\x00"));
 		$this->putVarInt($this->time);
-		$this->putBool($this->eduMode);
-		$this->putBool($this->hasEduFeaturesEnabled);
-		$this->putLFloat($this->rainLevel);
-		$this->putLFloat($this->lightningLevel);
-		$this->putBool($this->hasConfirmedPlatformLockedContent);
-		$this->putBool($this->isMultiplayerGame);
-		$this->putBool($this->hasLANBroadcast);
+		($this->buffer .= ($this->eduMode ? "\x01" : "\x00"));
+		($this->buffer .= ($this->hasEduFeaturesEnabled ? "\x01" : "\x00"));
+		($this->buffer .= (\pack("g", $this->rainLevel)));
+		($this->buffer .= (\pack("g", $this->lightningLevel)));
+		($this->buffer .= ($this->hasConfirmedPlatformLockedContent ? "\x01" : "\x00"));
+		($this->buffer .= ($this->isMultiplayerGame ? "\x01" : "\x00"));
+		($this->buffer .= ($this->hasLANBroadcast ? "\x01" : "\x00"));
 		$this->putVarInt($this->xboxLiveBroadcastMode);
 		$this->putVarInt($this->platformBroadcastMode);
-		$this->putBool($this->commandsEnabled);
-		$this->putBool($this->isTexturePacksRequired);
+		($this->buffer .= ($this->commandsEnabled ? "\x01" : "\x00"));
+		($this->buffer .= ($this->isTexturePacksRequired ? "\x01" : "\x00"));
 		$this->putGameRules($this->gameRules);
-		$this->putBool($this->hasBonusChestEnabled);
-		$this->putBool($this->hasStartWithMapEnabled);
+		($this->buffer .= ($this->hasBonusChestEnabled ? "\x01" : "\x00"));
+		($this->buffer .= ($this->hasStartWithMapEnabled ? "\x01" : "\x00"));
 		$this->putVarInt($this->defaultPlayerPermission);
-		$this->putLInt($this->serverChunkTickRadius);
-		$this->putBool($this->hasLockedBehaviorPack);
-		$this->putBool($this->hasLockedResourcePack);
-		$this->putBool($this->isFromLockedWorldTemplate);
-		$this->putBool($this->useMsaGamertagsOnly);
-		$this->putBool($this->isFromWorldTemplate);
-		$this->putBool($this->isWorldTemplateOptionLocked);
-		$this->putBool($this->onlySpawnV1Villagers);
+		($this->buffer .= (\pack("V", $this->serverChunkTickRadius)));
+		($this->buffer .= ($this->hasLockedBehaviorPack ? "\x01" : "\x00"));
+		($this->buffer .= ($this->hasLockedResourcePack ? "\x01" : "\x00"));
+		($this->buffer .= ($this->isFromLockedWorldTemplate ? "\x01" : "\x00"));
+		($this->buffer .= ($this->useMsaGamertagsOnly ? "\x01" : "\x00"));
+		($this->buffer .= ($this->isFromWorldTemplate ? "\x01" : "\x00"));
+		($this->buffer .= ($this->isWorldTemplateOptionLocked ? "\x01" : "\x00"));
+		($this->buffer .= ($this->onlySpawnV1Villagers ? "\x01" : "\x00"));
 
 		$this->putString($this->levelId);
 		$this->putString($this->worldName);
 		$this->putString($this->premiumWorldTemplateId);
-		$this->putBool($this->isTrial);
-		$this->putLLong($this->currentTick);
+		($this->buffer .= ($this->isTrial ? "\x01" : "\x00"));
+		($this->buffer .= (\pack("VV", $this->currentTick & 0xFFFFFFFF, $this->currentTick >> 32)));
 
 		$this->putVarInt($this->enchantmentSeed);
 
@@ -276,17 +276,17 @@ class StartGamePacket extends DataPacket{
 				//this is a really nasty hack, but it'll do for now
 				self::$blockTableCache = self::serializeBlockTable(RuntimeBlockMapping::getBedrockKnownStates());
 			}
-			$this->put(self::$blockTableCache);
+			($this->buffer .= self::$blockTableCache);
 		}else{
-			$this->put(self::serializeBlockTable($this->blockTable));
+			($this->buffer .= self::serializeBlockTable($this->blockTable));
 		}
 		if($this->itemTable === null){
 			if(self::$itemTableCache === null){
 				self::$itemTableCache = self::serializeItemTable(json_decode(file_get_contents(RESOURCE_PATH . '/vanilla/item_id_map.json'), true));
 			}
-			$this->put(self::$itemTableCache);
+			($this->buffer .= self::$itemTableCache);
 		}else{
-			$this->put(self::serializeItemTable($this->itemTable));
+			($this->buffer .= self::serializeItemTable($this->itemTable));
 		}
 
 		$this->putString($this->multiplayerCorrelationId);

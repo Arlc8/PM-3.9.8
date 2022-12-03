@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\network\mcpe\NetworkSession;
 use function base64_decode;
@@ -44,7 +44,7 @@ class AvailableActorIdentifiersPacket extends DataPacket{
 	}
 
 	protected function encodePayload(){
-		$this->put($this->namedtag ?? base64_decode(self::HARDCODED_NBT_BLOB));
+		($this->buffer .= $this->namedtag ?? base64_decode(self::HARDCODED_NBT_BLOB));
 	}
 
 	public function handle(NetworkSession $session) : bool{

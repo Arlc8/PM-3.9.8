@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\network\mcpe\NetworkSession;
 
@@ -39,7 +39,7 @@ class BiomeDefinitionListPacket extends DataPacket{
 	}
 
 	protected function encodePayload(){
-		$this->put($this->namedtag ?? self::HARDCODED_NBT_BLOB);
+		($this->buffer .= $this->namedtag ?? self::HARDCODED_NBT_BLOB);
 	}
 
 	public function handle(NetworkSession $session) : bool{

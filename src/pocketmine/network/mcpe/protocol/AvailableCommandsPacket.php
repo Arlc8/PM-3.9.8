@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\network\mcpe\NetworkSession;
 use pocketmine\network\mcpe\protocol\types\CommandData;
@@ -192,21 +192,21 @@ class AvailableCommandsPacket extends DataPacket{
 	 */
 	protected function getEnumValueIndex(int $valueCount) : int{
 		if($valueCount < 256){
-			return $this->getByte();
+			return (\ord($this->get(1)));
 		}elseif($valueCount < 65536){
-			return $this->getLShort();
+			return ((\unpack("v", $this->get(2))[1]));
 		}else{
-			return $this->getLInt();
+			return ((\unpack("V", $this->get(4))[1] << 32 >> 32));
 		}
 	}
 
 	protected function putEnumValueIndex(int $index, int $valueCount) : void{
 		if($valueCount < 256){
-			$this->putByte($index);
+			($this->buffer .= \chr($index));
 		}elseif($valueCount < 65536){
-			$this->putLShort($index);
+			($this->buffer .= (\pack("v", $index)));
 		}else{
-			$this->putLInt($index);
+			($this->buffer .= (\pack("V", $index)));
 		}
 	}
 
@@ -222,18 +222,18 @@ class AvailableCommandsPacket extends DataPacket{
 		$retval = new CommandData();
 		$retval->commandName = $this->getString();
 		$retval->commandDescription = $this->getString();
-		$retval->flags = $this->getByte();
-		$retval->permission = $this->getByte();
-		$retval->aliases = $enums[$this->getLInt()] ?? null;
+		$retval->flags = (\ord($this->get(1)));
+		$retval->permission = (\ord($this->get(1)));
+		$retval->aliases = $enums[((\unpack("V", $this->get(4))[1] << 32 >> 32))] ?? null;
 
 		for($overloadIndex = 0, $overloadCount = $this->getUnsignedVarInt(); $overloadIndex < $overloadCount; ++$overloadIndex){
 			$retval->overloads[$overloadIndex] = [];
 			for($paramIndex = 0, $paramCount = $this->getUnsignedVarInt(); $paramIndex < $paramCount; ++$paramIndex){
 				$parameter = new CommandParameter();
 				$parameter->paramName = $this->getString();
-				$parameter->paramType = $this->getLInt();
-				$parameter->isOptional = $this->getBool();
-				$parameter->flags = $this->getByte();
+				$parameter->paramType = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+				$parameter->isOptional = (($this->get(1) !== "\x00"));
+				$parameter->flags = (\ord($this->get(1)));
 
 				if($parameter->paramType & self::ARG_FLAG_ENUM){
 					$index = ($parameter->paramType & 0xffff);
@@ -266,13 +266,13 @@ class AvailableCommandsPacket extends DataPacket{
 	protected function putCommandData(CommandData $data, array $enumIndexes, array $postfixIndexes) : void{
 		$this->putString($data->commandName);
 		$this->putString($data->commandDescription);
-		$this->putByte($data->flags);
-		$this->putByte($data->permission);
+		($this->buffer .= \chr($data->flags));
+		($this->buffer .= \chr($data->permission));
 
 		if($data->aliases !== null){
-			$this->putLInt($enumIndexes[$data->aliases->enumName] ?? -1);
+			($this->buffer .= (\pack("V", $enumIndexes[$data->aliases->enumName] ?? -1)));
 		}else{
-			$this->putLInt(-1);
+			($this->buffer .= (\pack("V", -1)));
 		}
 
 		$this->putUnsignedVarInt(count($data->overloads));
@@ -294,9 +294,9 @@ class AvailableCommandsPacket extends DataPacket{
 					$type = $parameter->paramType;
 				}
 
-				$this->putLInt($type);
-				$this->putBool($parameter->isOptional);
-				$this->putByte($parameter->flags);
+				($this->buffer .= (\pack("V", $type)));
+				($this->buffer .= ($parameter->isOptional ? "\x01" : "\x00"));
+				($this->buffer .= \chr($parameter->flags));
 			}
 		}
 	}

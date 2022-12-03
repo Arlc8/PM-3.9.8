@@ -24,7 +24,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 
 use pocketmine\network\mcpe\NetworkSession;
@@ -46,7 +46,7 @@ class ResourcePackStackPacket extends DataPacket{
 	public $isExperimental = false;
 
 	protected function decodePayload(){
-		$this->mustAccept = $this->getBool();
+		$this->mustAccept = (($this->get(1) !== "\x00"));
 		$behaviorPackCount = $this->getUnsignedVarInt();
 		while($behaviorPackCount-- > 0){
 			$this->getString();
@@ -61,11 +61,11 @@ class ResourcePackStackPacket extends DataPacket{
 			$this->getString();
 		}
 
-		$this->isExperimental = $this->getBool();
+		$this->isExperimental = (($this->get(1) !== "\x00"));
 	}
 
 	protected function encodePayload(){
-		$this->putBool($this->mustAccept);
+		($this->buffer .= ($this->mustAccept ? "\x01" : "\x00"));
 
 		$this->putUnsignedVarInt(count($this->behaviorPackStack));
 		foreach($this->behaviorPackStack as $entry){
@@ -81,7 +81,7 @@ class ResourcePackStackPacket extends DataPacket{
 			$this->putString(""); //TODO: subpack name
 		}
 
-		$this->putBool($this->isExperimental);
+		($this->buffer .= ($this->isExperimental ? "\x01" : "\x00"));
 	}
 
 	public function handle(NetworkSession $session) : bool{

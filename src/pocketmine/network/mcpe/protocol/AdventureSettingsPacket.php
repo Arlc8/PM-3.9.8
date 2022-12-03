@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 
 use pocketmine\network\mcpe\NetworkSession;
@@ -82,7 +82,7 @@ class AdventureSettingsPacket extends DataPacket{
 		$this->flags2 = $this->getUnsignedVarInt();
 		$this->playerPermission = $this->getUnsignedVarInt();
 		$this->customFlags = $this->getUnsignedVarInt();
-		$this->entityUniqueId = $this->getLLong();
+		$this->entityUniqueId = (Binary::readLLong($this->get(8)));
 	}
 
 	protected function encodePayload(){
@@ -91,7 +91,7 @@ class AdventureSettingsPacket extends DataPacket{
 		$this->putUnsignedVarInt($this->flags2);
 		$this->putUnsignedVarInt($this->playerPermission);
 		$this->putUnsignedVarInt($this->customFlags);
-		$this->putLLong($this->entityUniqueId);
+		($this->buffer .= (\pack("VV", $this->entityUniqueId & 0xFFFFFFFF, $this->entityUniqueId >> 32)));
 	}
 
 	public function getFlag(int $flag) : bool{

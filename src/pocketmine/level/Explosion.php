@@ -133,7 +133,7 @@ class Explosion{
 							if($blockId !== 0){
 								$blastForce -= (BlockFactory::$blastResistance[$blockId] / 5 + 0.3) * $this->stepLen;
 								if($blastForce > 0){
-									if(!isset($this->affectedBlocks[$index = Level::blockHash($vBlock->x, $vBlock->y, $vBlock->z)])){
+									if(!isset($this->affectedBlocks[$index = ((($vBlock->x) & 0xFFFFFFF) << 36) | ((( $vBlock->y) & 0xff) << 28) | (( $vBlock->z) & 0xFFFFFFF)])){
 										$this->affectedBlocks[$index] = BlockFactory::get($blockId, $this->subChunkHandler->currentSubChunk->getBlockData($vBlock->x & 0x0f, $vBlock->y & 0x0f, $vBlock->z & 0x0f), $vBlock);
 									}
 								}
@@ -245,7 +245,7 @@ class Explosion{
 				if(!$this->level->isInWorld($sideBlock->x, $sideBlock->y, $sideBlock->z)){
 					continue;
 				}
-				if(!isset($this->affectedBlocks[$index = Level::blockHash($sideBlock->x, $sideBlock->y, $sideBlock->z)]) and !isset($updateBlocks[$index])){
+				if(!isset($this->affectedBlocks[$index = ((($sideBlock->x) & 0xFFFFFFF) << 36) | ((( $sideBlock->y) & 0xff) << 28) | (( $sideBlock->z) & 0xFFFFFFF)]) and !isset($updateBlocks[$index])){
 					$ev = new BlockUpdateEvent($this->level->getBlockAt($sideBlock->x, $sideBlock->y, $sideBlock->z));
 					$ev->call();
 					if(!$ev->isCancelled()){

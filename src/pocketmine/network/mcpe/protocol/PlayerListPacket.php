@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 
 use pocketmine\entity\Skin;
@@ -48,7 +48,7 @@ class PlayerListPacket extends DataPacket{
 	}
 
 	protected function decodePayload(){
-		$this->type = $this->getByte();
+		$this->type = (\ord($this->get(1)));
 		$count = $this->getUnsignedVarInt();
 		for($i = 0; $i < $count; ++$i){
 			$entry = new PlayerListEntry();
@@ -82,7 +82,7 @@ class PlayerListPacket extends DataPacket{
 	}
 
 	protected function encodePayload(){
-		$this->putByte($this->type);
+		($this->buffer .= \chr($this->type));
 		$this->putUnsignedVarInt(count($this->entries));
 		foreach($this->entries as $entry){
 			if($this->type === self::TYPE_ADD){

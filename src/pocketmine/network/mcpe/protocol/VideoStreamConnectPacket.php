@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\network\mcpe\NetworkSession;
 
@@ -46,18 +46,18 @@ class VideoStreamConnectPacket extends DataPacket/* implements ClientboundPacket
 
 	protected function decodePayload() : void{
 		$this->serverUri = $this->getString();
-		$this->frameSendFrequency = $this->getLFloat();
-		$this->action = $this->getByte();
-		$this->resolutionX = $this->getLInt();
-		$this->resolutionY = $this->getLInt();
+		$this->frameSendFrequency = ((\unpack("g", $this->get(4))[1]));
+		$this->action = (\ord($this->get(1)));
+		$this->resolutionX = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+		$this->resolutionY = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
 	}
 
 	protected function encodePayload() : void{
 		$this->putString($this->serverUri);
-		$this->putLFloat($this->frameSendFrequency);
-		$this->putByte($this->action);
-		$this->putLInt($this->resolutionX);
-		$this->putLInt($this->resolutionY);
+		($this->buffer .= (\pack("g", $this->frameSendFrequency)));
+		($this->buffer .= \chr($this->action));
+		($this->buffer .= (\pack("V", $this->resolutionX)));
+		($this->buffer .= (\pack("V", $this->resolutionY)));
 	}
 
 	public function handle(NetworkSession $session) : bool{

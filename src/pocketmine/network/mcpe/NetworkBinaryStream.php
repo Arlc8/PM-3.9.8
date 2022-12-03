@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\entity\Attribute;
 use pocketmine\entity\Entity;
@@ -54,24 +54,24 @@ class NetworkBinaryStream extends BinaryStream{
 
 	public function putString(string $v) : void{
 		$this->putUnsignedVarInt(strlen($v));
-		$this->put($v);
+		($this->buffer .= $v);
 	}
 
 	public function getUUID() : UUID{
 		//This is actually two little-endian longs: UUID Most followed by UUID Least
-		$part1 = $this->getLInt();
-		$part0 = $this->getLInt();
-		$part3 = $this->getLInt();
-		$part2 = $this->getLInt();
+		$part1 = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+		$part0 = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+		$part3 = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
+		$part2 = ((\unpack("V", $this->get(4))[1] << 32 >> 32));
 
 		return new UUID($part0, $part1, $part2, $part3);
 	}
 
 	public function putUUID(UUID $uuid) : void{
-		$this->putLInt($uuid->getPart(1));
-		$this->putLInt($uuid->getPart(0));
-		$this->putLInt($uuid->getPart(3));
-		$this->putLInt($uuid->getPart(2));
+		($this->buffer .= (\pack("V", $uuid->getPart(1))));
+		($this->buffer .= (\pack("V", $uuid->getPart(0))));
+		($this->buffer .= (\pack("V", $uuid->getPart(3))));
+		($this->buffer .= (\pack("V", $uuid->getPart(2))));
 	}
 
 	public function getSlot() : Item{
@@ -84,12 +84,12 @@ class NetworkBinaryStream extends BinaryStream{
 		$data = $auxValue >> 8;
 		$cnt = $auxValue & 0xff;
 
-		$nbtLen = $this->getLShort();
+		$nbtLen = ((\unpack("v", $this->get(2))[1]));
 
 		/** @var CompoundTag|null $nbt */
 		$nbt = null;
 		if($nbtLen === 0xffff){
-			$c = $this->getByte();
+			$c = (\ord($this->get(1)));
 			if($c !== 1){
 				throw new \UnexpectedValueException("Unexpected NBT count $c");
 			}
@@ -164,11 +164,11 @@ class NetworkBinaryStream extends BinaryStream{
 		}
 
 		if($nbt !== null){
-			$this->putLShort(0xffff);
-			$this->putByte(1); //TODO: some kind of count field? always 1 as of 1.9.0
-			$this->put((new NetworkLittleEndianNBTStream())->write($nbt));
+			($this->buffer .= (\pack("v", 0xffff)));
+			($this->buffer .= \chr(1)); //TODO: some kind of count field? always 1 as of 1.9.0
+			($this->buffer .= (new NetworkLittleEndianNBTStream())->write($nbt));
 		}else{
-			$this->putLShort(0);
+			($this->buffer .= (\pack("v", 0)));
 		}
 
 		$this->putVarInt(0); //CanPlaceOn entry count (TODO)
@@ -218,16 +218,16 @@ class NetworkBinaryStream extends BinaryStream{
 			$value = null;
 			switch($type){
 				case Entity::DATA_TYPE_BYTE:
-					$value = $this->getByte();
+					$value = (\ord($this->get(1)));
 					break;
 				case Entity::DATA_TYPE_SHORT:
-					$value = $this->getSignedLShort();
+					$value = ((\unpack("v", $this->get(2))[1] << 48 >> 48));
 					break;
 				case Entity::DATA_TYPE_INT:
 					$value = $this->getVarInt();
 					break;
 				case Entity::DATA_TYPE_FLOAT:
-					$value = $this->getLFloat();
+					$value = ((\unpack("g", $this->get(4))[1]));
 					break;
 				case Entity::DATA_TYPE_STRING:
 					$value = $this->getString();
@@ -270,22 +270,22 @@ class NetworkBinaryStream extends BinaryStream{
 			$this->putUnsignedVarInt($d[0]); //data type
 			switch($d[0]){
 				case Entity::DATA_TYPE_BYTE:
-					$this->putByte($d[1]);
+					($this->buffer .= \chr($d[1]));
 					break;
 				case Entity::DATA_TYPE_SHORT:
-					$this->putLShort($d[1]); //SIGNED short!
+					($this->buffer .= (\pack("v", $d[1]))); //SIGNED short!
 					break;
 				case Entity::DATA_TYPE_INT:
 					$this->putVarInt($d[1]);
 					break;
 				case Entity::DATA_TYPE_FLOAT:
-					$this->putLFloat($d[1]);
+					($this->buffer .= (\pack("g", $d[1])));
 					break;
 				case Entity::DATA_TYPE_STRING:
 					$this->putString($d[1]);
 					break;
 				case Entity::DATA_TYPE_COMPOUND_TAG:
-					$this->put((new NetworkLittleEndianNBTStream())->write($d[1]));
+					($this->buffer .= (new NetworkLittleEndianNBTStream())->write($d[1]));
 					break;
 				case Entity::DATA_TYPE_POS:
 					$v = $d[1];
@@ -318,10 +318,10 @@ class NetworkBinaryStream extends BinaryStream{
 		$count = $this->getUnsignedVarInt();
 
 		for($i = 0; $i < $count; ++$i){
-			$min = $this->getLFloat();
-			$max = $this->getLFloat();
-			$current = $this->getLFloat();
-			$default = $this->getLFloat();
+			$min = ((\unpack("g", $this->get(4))[1]));
+			$max = ((\unpack("g", $this->get(4))[1]));
+			$current = ((\unpack("g", $this->get(4))[1]));
+			$default = ((\unpack("g", $this->get(4))[1]));
 			$name = $this->getString();
 
 			$attr = Attribute::getAttributeByName($name);
@@ -348,10 +348,10 @@ class NetworkBinaryStream extends BinaryStream{
 	public function putAttributeList(Attribute ...$attributes) : void{
 		$this->putUnsignedVarInt(count($attributes));
 		foreach($attributes as $attribute){
-			$this->putLFloat($attribute->getMinValue());
-			$this->putLFloat($attribute->getMaxValue());
-			$this->putLFloat($attribute->getValue());
-			$this->putLFloat($attribute->getDefaultValue());
+			($this->buffer .= (\pack("g", $attribute->getMinValue())));
+			($this->buffer .= (\pack("g", $attribute->getMaxValue())));
+			($this->buffer .= (\pack("g", $attribute->getValue())));
+			($this->buffer .= (\pack("g", $attribute->getDefaultValue())));
 			$this->putString($attribute->getName());
 		}
 	}
@@ -449,9 +449,9 @@ class NetworkBinaryStream extends BinaryStream{
 	 */
 	public function getVector3() : Vector3{
 		return new Vector3(
-			$this->getRoundedLFloat(4),
-			$this->getRoundedLFloat(4),
-			$this->getRoundedLFloat(4)
+			((\round((\unpack("g", $this->get(4))[1]),  4))),
+			((\round((\unpack("g", $this->get(4))[1]),  4))),
+			((\round((\unpack("g", $this->get(4))[1]),  4)))
 		);
 	}
 
@@ -469,9 +469,9 @@ class NetworkBinaryStream extends BinaryStream{
 		if($vector){
 			$this->putVector3($vector);
 		}else{
-			$this->putLFloat(0.0);
-			$this->putLFloat(0.0);
-			$this->putLFloat(0.0);
+			($this->buffer .= (\pack("g", 0.0)));
+			($this->buffer .= (\pack("g", 0.0)));
+			($this->buffer .= (\pack("g", 0.0)));
 		}
 	}
 
@@ -481,17 +481,17 @@ class NetworkBinaryStream extends BinaryStream{
 	 * @param Vector3 $vector
 	 */
 	public function putVector3(Vector3 $vector) : void{
-		$this->putLFloat($vector->x);
-		$this->putLFloat($vector->y);
-		$this->putLFloat($vector->z);
+		($this->buffer .= (\pack("g", $vector->x)));
+		($this->buffer .= (\pack("g", $vector->y)));
+		($this->buffer .= (\pack("g", $vector->z)));
 	}
 
 	public function getByteRotation() : float{
-		return (float) ($this->getByte() * (360 / 256));
+		return (float) ((\ord($this->get(1))) * (360 / 256));
 	}
 
 	public function putByteRotation(float $rotation) : void{
-		$this->putByte((int) ($rotation / (360 / 256)));
+		($this->buffer .= \chr((int) ($rotation / (360 / 256))));
 	}
 
 	/**
@@ -509,13 +509,13 @@ class NetworkBinaryStream extends BinaryStream{
 			$value = null;
 			switch($type){
 				case 1:
-					$value = $this->getBool();
+					$value = (($this->get(1) !== "\x00"));
 					break;
 				case 2:
 					$value = $this->getUnsignedVarInt();
 					break;
 				case 3:
-					$value = $this->getLFloat();
+					$value = ((\unpack("g", $this->get(4))[1]));
 					break;
 			}
 
@@ -538,13 +538,13 @@ class NetworkBinaryStream extends BinaryStream{
 			$this->putUnsignedVarInt($rule[0]);
 			switch($rule[0]){
 				case 1:
-					$this->putBool($rule[1]);
+					($this->buffer .= ($rule[1] ? "\x01" : "\x00"));
 					break;
 				case 2:
 					$this->putUnsignedVarInt($rule[1]);
 					break;
 				case 3:
-					$this->putLFloat($rule[1]);
+					($this->buffer .= (\pack("g", $rule[1])));
 					break;
 			}
 		}
@@ -558,8 +558,8 @@ class NetworkBinaryStream extends BinaryStream{
 
 		$link->fromEntityUniqueId = $this->getEntityUniqueId();
 		$link->toEntityUniqueId = $this->getEntityUniqueId();
-		$link->type = $this->getByte();
-		$link->immediate = $this->getBool();
+		$link->type = (\ord($this->get(1)));
+		$link->immediate = (($this->get(1) !== "\x00"));
 
 		return $link;
 	}
@@ -570,8 +570,8 @@ class NetworkBinaryStream extends BinaryStream{
 	protected function putEntityLink(EntityLink $link) : void{
 		$this->putEntityUniqueId($link->fromEntityUniqueId);
 		$this->putEntityUniqueId($link->toEntityUniqueId);
-		$this->putByte($link->type);
-		$this->putBool($link->immediate);
+		($this->buffer .= \chr($link->type));
+		($this->buffer .= ($link->immediate ? "\x01" : "\x00"));
 	}
 
 	protected function getCommandOriginData() : CommandOriginData{
@@ -603,17 +603,17 @@ class NetworkBinaryStream extends BinaryStream{
 
 		$result->paletteName = $this->getString();
 
-		$result->ignoreEntities = $this->getBool();
-		$result->ignoreBlocks = $this->getBool();
+		$result->ignoreEntities = (($this->get(1) !== "\x00"));
+		$result->ignoreBlocks = (($this->get(1) !== "\x00"));
 
 		$this->getBlockPosition($result->structureSizeX, $result->structureSizeY, $result->structureSizeZ);
 		$this->getBlockPosition($result->structureOffsetX, $result->structureOffsetY, $result->structureOffsetZ);
 
 		$result->lastTouchedByPlayerID = $this->getEntityUniqueId();
-		$result->rotation = $this->getByte();
-		$result->mirror = $this->getByte();
-		$result->integrityValue = $this->getFloat();
-		$result->integritySeed = $this->getInt();
+		$result->rotation = (\ord($this->get(1)));
+		$result->mirror = (\ord($this->get(1)));
+		$result->integrityValue = ((\unpack("G", $this->get(4))[1]));
+		$result->integritySeed = ((\unpack("N", $this->get(4))[1] << 32 >> 32));
 
 		return $result;
 	}
@@ -621,16 +621,16 @@ class NetworkBinaryStream extends BinaryStream{
 	protected function putStructureSettings(StructureSettings $structureSettings) : void{
 		$this->putString($structureSettings->paletteName);
 
-		$this->putBool($structureSettings->ignoreEntities);
-		$this->putBool($structureSettings->ignoreBlocks);
+		($this->buffer .= ($structureSettings->ignoreEntities ? "\x01" : "\x00"));
+		($this->buffer .= ($structureSettings->ignoreBlocks ? "\x01" : "\x00"));
 
 		$this->putBlockPosition($structureSettings->structureSizeX, $structureSettings->structureSizeY, $structureSettings->structureSizeZ);
 		$this->putBlockPosition($structureSettings->structureOffsetX, $structureSettings->structureOffsetY, $structureSettings->structureOffsetZ);
 
 		$this->putEntityUniqueId($structureSettings->lastTouchedByPlayerID);
-		$this->putByte($structureSettings->rotation);
-		$this->putByte($structureSettings->mirror);
-		$this->putFloat($structureSettings->integrityValue);
-		$this->putInt($structureSettings->integritySeed);
+		($this->buffer .= \chr($structureSettings->rotation));
+		($this->buffer .= \chr($structureSettings->mirror));
+		($this->buffer .= (\pack("G", $structureSettings->integrityValue)));
+		($this->buffer .= (\pack("N", $structureSettings->integritySeed)));
 	}
 }

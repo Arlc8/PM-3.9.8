@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 use pocketmine\network\mcpe\NetworkSession;
 
@@ -44,15 +44,15 @@ class LabTablePacket extends DataPacket{
 	public $reactionType;
 
 	protected function decodePayload(){
-		$this->uselessByte = $this->getByte();
+		$this->uselessByte = (\ord($this->get(1)));
 		$this->getSignedBlockPosition($this->x, $this->y, $this->z);
-		$this->reactionType = $this->getByte();
+		$this->reactionType = (\ord($this->get(1)));
 	}
 
 	protected function encodePayload(){
-		$this->putByte($this->uselessByte);
+		($this->buffer .= \chr($this->uselessByte));
 		$this->putSignedBlockPosition($this->x, $this->y, $this->z);
-		$this->putByte($this->reactionType);
+		($this->buffer .= \chr($this->reactionType));
 	}
 
 	public function handle(NetworkSession $session) : bool{

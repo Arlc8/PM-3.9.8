@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-#include <rules/DataPacket.h>
+use pocketmine\utils\Binary;
 
 
 use pocketmine\network\mcpe\NetworkSession;
@@ -48,13 +48,13 @@ class SetSpawnPositionPacket extends DataPacket{
 	protected function decodePayload(){
 		$this->spawnType = $this->getVarInt();
 		$this->getBlockPosition($this->x, $this->y, $this->z);
-		$this->spawnForced = $this->getBool();
+		$this->spawnForced = (($this->get(1) !== "\x00"));
 	}
 
 	protected function encodePayload(){
 		$this->putVarInt($this->spawnType);
 		$this->putBlockPosition($this->x, $this->y, $this->z);
-		$this->putBool($this->spawnForced);
+		($this->buffer .= ($this->spawnForced ? "\x01" : "\x00"));
 	}
 
 	public function handle(NetworkSession $session) : bool{

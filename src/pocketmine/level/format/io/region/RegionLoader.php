@@ -142,7 +142,7 @@ class RegionLoader{
 		if($prefix === false or strlen($prefix) !== 4){
 			throw new CorruptedChunkException("Corrupted chunk header detected (unexpected end of file reading length prefix)");
 		}
-		$length = Binary::readInt($prefix);
+		$length = (\unpack("N", $prefix)[1] << 32 >> 32);
 
 		if($length <= 0){ //TODO: if we reached here, the locationTable probably needs updating
 			return null;
@@ -210,7 +210,7 @@ class RegionLoader{
 		$this->bumpNextFreeSector($this->locationTable[$index]);
 
 		fseek($this->filePointer, $offset << 12);
-		fwrite($this->filePointer, str_pad(Binary::writeInt($length) . chr(self::COMPRESSION_ZLIB) . $chunkData, $newSize << 12, "\x00", STR_PAD_RIGHT));
+		fwrite($this->filePointer, str_pad((\pack("N", $length)) . chr(self::COMPRESSION_ZLIB) . $chunkData, $newSize << 12, "\x00", STR_PAD_RIGHT));
 
 		$this->writeLocationIndex($index);
 	}
@@ -343,9 +343,9 @@ class RegionLoader{
 
 	protected function writeLocationIndex($index){
 		fseek($this->filePointer, $index << 2);
-		fwrite($this->filePointer, Binary::writeInt(($this->locationTable[$index]->getFirstSector() << 8) | $this->locationTable[$index]->getSectorCount()), 4);
+		fwrite($this->filePointer, (\pack("N", ($this->locationTable[$index]->getFirstSector() << 8) | $this->locationTable[$index]->getSectorCount())), 4);
 		fseek($this->filePointer, 4096 + ($index << 2));
-		fwrite($this->filePointer, Binary::writeInt($this->locationTable[$index]->getTimestamp()), 4);
+		fwrite($this->filePointer, (\pack("N", $this->locationTable[$index]->getTimestamp())), 4);
 	}
 
 	protected function createBlank(){
