@@ -44,7 +44,6 @@ use pocketmine\network\mcpe\protocol\InteractPacket;
 use pocketmine\network\mcpe\protocol\InventoryTransactionPacket;
 use pocketmine\network\mcpe\protocol\ItemFrameDropItemPacket;
 use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
-use pocketmine\network\mcpe\protocol\LevelSoundEventPacketV1;
 use pocketmine\network\mcpe\protocol\LoginPacket;
 use pocketmine\network\mcpe\protocol\MapInfoRequestPacket;
 use pocketmine\network\mcpe\protocol\MobArmorEquipmentPacket;
@@ -88,6 +87,10 @@ class PlayerNetworkSessionAdapter extends NetworkSession{
 	public function __construct(Server $server, Player $player){
 		$this->server = $server;
 		$this->player = $player;
+	}
+
+	public function getProtocol() : int{
+	    return $this->player->getProtocol();
 	}
 
 	public function handleDataPacket(DataPacket $packet){
@@ -135,10 +138,6 @@ class PlayerNetworkSessionAdapter extends NetworkSession{
 
 	public function handleMovePlayer(MovePlayerPacket $packet) : bool{
 		return $this->player->handleMovePlayer($packet);
-	}
-
-	public function handleLevelSoundEventPacketV1(LevelSoundEventPacketV1 $packet) : bool{
-		return true; //useless leftover from 1.8
 	}
 
 	public function handleActorEvent(ActorEventPacket $packet) : bool{

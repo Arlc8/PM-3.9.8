@@ -28,6 +28,7 @@ use pocketmine\utils\Binary;
 use pocketmine\network\mcpe\CachedEncapsulatedPacket;
 use pocketmine\network\mcpe\NetworkBinaryStream;
 use pocketmine\network\mcpe\NetworkSession;
+use pocketmine\utils\BinaryDataException;
 use pocketmine\utils\Utils;
 use function bin2hex;
 use function get_class;
@@ -37,7 +38,12 @@ use function method_exists;
 
 abstract class DataPacket extends NetworkBinaryStream{
 
-	public const NETWORK_ID = 0;
+	public const NETWORK_ID = 0x0;
+    public const PID_MASK = 0x3ff;
+
+    private const SUBCLIENT_ID_MASK = 0x3;
+    private const SENDER_SUBCLIENT_ID_SHIFT = 0xa;
+    private const RECIPIENT_SUBCLIENT_ID_SHIFT = 0xc;
 
 	/** @var bool */
 	public $isEncoded = false;
@@ -45,9 +51,11 @@ abstract class DataPacket extends NetworkBinaryStream{
 	public $__encapsulatedPacket = null;
 
 	/** @var int */
-	public $senderSubId = 0;
+	public $senderSubId = 0x0;
 	/** @var int */
-	public $recipientSubId = 0;
+	public $recipientSubId = 0x0;
+	/** @var int|null */
+	private $packetProtocol;
 
 	public function pid(){
 		return $this::NETWORK_ID;
@@ -56,6 +64,20 @@ abstract class DataPacket extends NetworkBinaryStream{
 	public function getName() : string{
 		return (new \ReflectionClass($this))->getShortName();
 	}
+
+	public function setProtocol(int $protocol) : void{
+	    $this->packetProtocol = $protocol;
+	}
+	
+	public function getProtocol() : int{
+	    return $this->packetProtocol;
+	}
+
+    public function checkProtocol() : void{
+        if ($this->packetProtocol === null) {
+            throw new \InvalidArgumentException('Protocol has not passed. Please use $packet->setProtocol(int $protocol)->... for fix it.');
+        }
+    }
 
 	public function canBeBatched() : bool{
 		return true;
@@ -78,7 +100,8 @@ abstract class DataPacket extends NetworkBinaryStream{
 	 * @throws \UnexpectedValueException
 	 */
 	public function decode(){
-		$this->offset = 0;
+		$this->rewind();
+		$this->checkProtocol();
 		$this->decodeHeader();
 		$this->decodePayload();
 	}
@@ -88,10 +111,20 @@ abstract class DataPacket extends NetworkBinaryStream{
 	 * @throws \UnexpectedValueException
 	 */
 	protected function decodeHeader(){
-		$pid = $this->getUnsignedVarInt();
-		if($pid !== static::NETWORK_ID){
-			throw new \UnexpectedValueException("Expected " . static::NETWORK_ID . " for packet ID, got $pid");
-		}
+        if ($this->packetProtocol < ProtocolInfo::PROTOCOL_280) {
+            $this->getByte();
+            if ($this->packetProtocol >= ProtocolInfo::PROTOCOL_120) {
+                $this->senderSubId = $this->getByte();
+                $this->recipientSubId = $this->getByte();
+                if ($this->senderSubId > 0x4 || $this->recipientSubId > 0x4) {
+                    throw new BinaryDataException(($this) . ": Packet decode headers error");
+                }
+            }
+        } else {
+            $pid = $this->getUnsignedVarInt();
+            $this->senderSubId = ($pid >> self::SENDER_SUBCLIENT_ID_SHIFT) & self::SUBCLIENT_ID_MASK;
+            $this->recipientSubId = ($pid >> self::RECIPIENT_SUBCLIENT_ID_SHIFT) & self::SUBCLIENT_ID_MASK;
+        }
 	}
 
 	/**
@@ -106,13 +139,23 @@ abstract class DataPacket extends NetworkBinaryStream{
 
 	public function encode(){
 		$this->reset();
+		$this->checkProtocol();
 		$this->encodeHeader();
 		$this->encodePayload();
 		$this->isEncoded = true;
 	}
 
 	protected function encodeHeader(){
-		$this->putUnsignedVarInt(static::NETWORK_ID);
+	    $pid = static::NETWORK_ID;
+        if ($this->packetProtocol < ProtocolInfo::PROTOCOL_280) {
+            $this->putByte($pid);
+            if ($this->packetProtocol >= ProtocolInfo::PROTOCOL_120) {
+                $this->putByte($this->senderSubId);
+                $this->putByte($this->recipientSubId);
+            }
+        } else {
+            $this->putUnsignedVarInt($pid | ($this->senderSubId << self::SENDER_SUBCLIENT_ID_SHIFT) | ($this->recipientSubId << self::RECIPIENT_SUBCLIENT_ID_SHIFT));
+        }
 	}
 
 	/**

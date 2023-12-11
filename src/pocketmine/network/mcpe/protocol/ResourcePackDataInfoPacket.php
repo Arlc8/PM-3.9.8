@@ -26,12 +26,22 @@ namespace pocketmine\network\mcpe\protocol;
 
 use pocketmine\utils\Binary;
 
-
+use pocketmine\network\mcpe\multiversion\ResourceEnums;
 use pocketmine\network\mcpe\NetworkSession;
-use pocketmine\network\mcpe\protocol\types\ResourcePackType;
 
 class ResourcePackDataInfoPacket extends DataPacket{
 	public const NETWORK_ID = ProtocolInfo::RESOURCE_PACK_DATA_INFO_PACKET;
+
+	public const TYPE_INVALID = 'TYPE_INVALID';
+	public const TYPE_ADDON = 'TYPE_ADDON';
+	public const TYPE_CACHED = 'TYPE_CACHED';
+	public const TYPE_COPY_PROTECTED = 'TYPE_COPY_PROTECTED';
+	public const TYPE_BEHAVIOR = 'TYPE_BEHAVIOR';
+	public const TYPE_PERSONA_PIECE = 'TYPE_PERSONA_PIECE';
+	public const TYPE_RESOURCE = 'TYPE_RESOURCE';
+	public const TYPE_SKINS = 'TYPE_SKINS';
+	public const TYPE_WORLD_TEMPLATE = 'TYPE_WORLD_TEMPLATE';
+	public const TYPE_COUNT = 'TYPE_COUNT';
 
 	/** @var string */
 	public $packId;
@@ -46,7 +56,7 @@ class ResourcePackDataInfoPacket extends DataPacket{
 	/** @var bool */
 	public $isPremium = false;
 	/** @var int */
-	public $packType = ResourcePackType::RESOURCES; //TODO: check the values for this
+	public $packType = self::TYPE_RESOURCE; //TODO: check the values for this
 
 	protected function decodePayload(){
 		$this->packId = $this->getString();
@@ -65,7 +75,7 @@ class ResourcePackDataInfoPacket extends DataPacket{
 		($this->buffer .= (\pack("VV", $this->compressedPackSize & 0xFFFFFFFF, $this->compressedPackSize >> 32)));
 		$this->putString($this->sha256);
 		($this->buffer .= ($this->isPremium ? "\x01" : "\x00"));
-		($this->buffer .= \chr($this->packType));
+		($this->buffer .= \chr(ResourceEnums::getPackTypeId($this->getProtocol(), $this->packType)));
 	}
 
 	public function handle(NetworkSession $session) : bool{

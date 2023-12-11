@@ -97,7 +97,6 @@ use pocketmine\snooze\SleeperNotifier;
 use pocketmine\tile\Tile;
 use pocketmine\timings\Timings;
 use pocketmine\timings\TimingsHandler;
-use pocketmine\updater\AutoUpdater;
 use pocketmine\utils\Config;
 use pocketmine\utils\Internet;
 use pocketmine\utils\MainLogger;
@@ -215,9 +214,6 @@ class Server{
 	/** @var float */
 	private $profilingTickRate = 20;
 
-	/** @var AutoUpdater */
-	private $updater = null;
-
 	/** @var AsyncPool */
 	private $asyncPool;
 
@@ -267,9 +263,6 @@ class Server{
 
 	/** @var int */
 	private $maxPlayers;
-
-	/** @var bool */
-	private $onlineMode = true;
 
 	/** @var bool */
 	private $autoSave;
@@ -413,24 +406,6 @@ class Server{
 	 */
 	public function getMaxPlayers() : int{
 		return $this->maxPlayers;
-	}
-
-	/**
-	 * Returns whether the server requires that players be authenticated to Xbox Live. If true, connecting players who
-	 * are not logged into Xbox Live will be disconnected.
-	 *
-	 * @return bool
-	 */
-	public function getOnlineMode() : bool{
-		return $this->onlineMode;
-	}
-
-	/**
-	 * Alias of {@link #getOnlineMode()}.
-	 * @return bool
-	 */
-	public function requiresAuthentication() : bool{
-		return $this->getOnlineMode();
 	}
 
 	/**
@@ -672,13 +647,6 @@ class Server{
 	 */
 	public function getLevelMetadata(){
 		return $this->levelMetadata;
-	}
-
-	/**
-	 * @return AutoUpdater
-	 */
-	public function getUpdater(){
-		return $this->updater;
 	}
 
 	/**
@@ -1653,16 +1621,6 @@ class Server{
 			$this->maxPlayers = $this->getConfigInt("max-players", 20);
 			$this->setAutoSave($this->getConfigBool("auto-save", true));
 
-			$this->onlineMode = $this->getConfigBool("xbox-auth", true);
-			if($this->onlineMode){
-				$this->logger->notice($this->getLanguage()->translateString("pocketmine.server.auth.enabled"));
-				$this->logger->notice($this->getLanguage()->translateString("pocketmine.server.authProperty.enabled"));
-			}else{
-				$this->logger->warning($this->getLanguage()->translateString("pocketmine.server.auth.disabled"));
-				$this->logger->warning($this->getLanguage()->translateString("pocketmine.server.authWarning"));
-				$this->logger->warning($this->getLanguage()->translateString("pocketmine.server.authProperty.disabled"));
-			}
-
 			if($this->getConfigBool("hardcore", false) and $this->getDifficulty() < Level::DIFFICULTY_HARD){
 				$this->setConfigInt("difficulty", Level::DIFFICULTY_HARD);
 			}
@@ -1722,8 +1680,6 @@ class Server{
 			$this->queryRegenerateTask = new QueryRegenerateEvent($this);
 
 			$this->pluginManager->loadPlugins($this->pluginPath);
-
-			$this->updater = new AutoUpdater($this, $this->getProperty("auto-updater.host", "update.pmmp.io"));
 
 			$this->enablePlugins(PluginLoadOrder::STARTUP);
 
@@ -1914,7 +1870,6 @@ class Server{
 	 * @param DataPacket $packet
 	 */
 	public function broadcastPacket(array $players, DataPacket $packet){
-		$packet->encode();
 		$this->batchPackets($players, [$packet], false);
 	}
 
@@ -1932,27 +1887,37 @@ class Server{
 		}
 		Timings::$playerNetworkTimer->startTiming();
 
-		$targets = array_filter($players, function(Player $player) : bool{ return $player->isConnected(); });
+        $targets = [];
+        foreach($players as $player){
+            if($player->isConnected()){
+                $targets[$player->getProtocol()][] = $player;
+            }
+        }
 
 		if(!empty($targets)){
-			$pk = new BatchPacket();
+		    foreach($targets as $protocol => $receivers){
+		    	$pk = new BatchPacket();
+                $pk->setProtocol($protocol);
 
-			foreach($packets as $p){
-				$pk->addPacket($p);
-			}
+		    	foreach($packets as $p){
+		    	    $p->setProtocol($protocol);
 
-			if(Network::$BATCH_THRESHOLD >= 0 and strlen($pk->payload) >= Network::$BATCH_THRESHOLD){
-				$pk->setCompressionLevel($this->networkCompressionLevel);
-			}else{
-				$pk->setCompressionLevel(0); //Do not compress packets under the threshold
-				$forceSync = true;
-			}
+			    	$pk->addPacket($p);
+		    	}
 
-			if(!$forceSync and !$immediate and $this->networkCompressionAsync){
-				$task = new CompressBatchedTask($pk, $targets);
-				$this->asyncPool->submitTask($task);
-			}else{
-				$this->broadcastPacketsCallback($pk, $targets, $immediate);
+		    	if(Network::$BATCH_THRESHOLD >= 0 and strlen($pk->payload) >= Network::$BATCH_THRESHOLD){
+			    	$pk->setCompressionLevel($this->networkCompressionLevel);
+		    	}else{
+			    	$pk->setCompressionLevel(0); //Do not compress packets under the threshold
+				    $forceSync = true;
+		    	}
+
+		    	if(!$forceSync and !$immediate and $this->networkCompressionAsync){
+			    	$task = new CompressBatchedTask($pk, $receivers);
+			    	$this->asyncPool->submitTask($task);
+		    	}else{
+			    	$this->broadcastPacketsCallback($pk, $receivers, $immediate);
+		    	}
 			}
 		}
 
@@ -1965,10 +1930,6 @@ class Server{
 	 * @param bool        $immediate
 	 */
 	public function broadcastPacketsCallback(BatchPacket $pk, array $players, bool $immediate = false){
-		if(!$pk->isEncoded){
-			$pk->encode();
-		}
-
 		foreach($players as $i){
 			$i->sendDataPacket($pk, false, $immediate);
 		}
@@ -2196,7 +2157,6 @@ class Server{
 
 		$this->logger->info($this->getLanguage()->translateString("pocketmine.server.defaultGameMode", [self::getGamemodeString($this->getGamemode())]));
 
-		$this->logger->info($this->getLanguage()->translateString("pocketmine.server.donate", [TextFormat::AQUA . "https://patreon.com/pocketminemp" . TextFormat::RESET]));
 		$this->logger->info($this->getLanguage()->translateString("pocketmine.server.startFinished", [round(microtime(true) - \pocketmine\START_TIME, 3)]));
 
 		$this->tickProcessor();
@@ -2445,6 +2405,10 @@ class Server{
 			if($tickMs >= 50){
 				$this->getLogger()->debug(sprintf("World \"%s\" took too long to tick: %gms (%g ticks)", $level->getName(), $tickMs, round($tickMs / 50, 2)));
 			}
+		}
+
+		if($this->craftingManager instanceof CraftingManager){
+		    $this->craftingManager->scheduleQueueUpdate();
 		}
 	}
 

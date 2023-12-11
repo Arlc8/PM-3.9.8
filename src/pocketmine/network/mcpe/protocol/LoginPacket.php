@@ -30,6 +30,7 @@ use pocketmine\network\mcpe\NetworkSession;
 use pocketmine\utils\BinaryStream;
 use pocketmine\utils\MainLogger;
 use pocketmine\utils\Utils;
+use function in_array;
 use function get_class;
 use function json_decode;
 
@@ -62,29 +63,35 @@ class LoginPacket extends DataPacket{
 	/** @var array decoded payload of the clientData JWT */
 	public $clientData = [];
 
-	/**
-	 * This field may be used by plugins to bypass keychain verification. It should only be used for plugins such as
-	 * Specter where passing verification would take too much time and not be worth it.
-	 *
-	 * @var bool
-	 */
-	public $skipVerification = false;
+    /** @var bool */
+	public $isValidProtocol = true; // valid protocol
 
 	public function canBeSentBeforeLogin() : bool{
 		return true;
 	}
 
 	public function mayHaveUnreadBytes() : bool{
-		return $this->protocol !== null and $this->protocol !== ProtocolInfo::CURRENT_PROTOCOL;
+		return $this->isValidProtocol === true;
 	}
 
 	protected function decodePayload(){
+        if (((\unpack("N", $this->get(4))[1] << 32 >> 32)) === 0x0) {
+            $this->setOffset($this->getOffset() - 0x2);
+        } else {
+            $this->setOffset($this->getOffset() - 0x4);
+        }
 		$this->protocol = ((\unpack("N", $this->get(4))[1] << 32 >> 32));
+
+        if (!in_array($this->protocol, ProtocolInfo::ACCEPTED_PROTOCOLS)) {
+            $this->isValidProtocol = false;
+
+            return;
+        }
 
 		try{
 			$this->decodeConnectionRequest();
 		}catch(\Throwable $e){
-			if($this->protocol === ProtocolInfo::CURRENT_PROTOCOL){
+			if($this->isValidProtocol){
 				throw $e;
 			}
 

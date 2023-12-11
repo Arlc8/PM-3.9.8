@@ -56,11 +56,11 @@ class Lava extends Liquid{
 		return BlockFactory::get(Block::FLOWING_LAVA, $this->meta);
 	}
 
-	public function getBucketFillSound() : int{
+	public function getBucketFillSound() : string{
 		return LevelSoundEventPacket::SOUND_BUCKET_FILL_LAVA;
 	}
 
-	public function getBucketEmptySound() : int{
+	public function getBucketEmptySound() : string{
 		return LevelSoundEventPacket::SOUND_BUCKET_EMPTY_LAVA;
 	}
 

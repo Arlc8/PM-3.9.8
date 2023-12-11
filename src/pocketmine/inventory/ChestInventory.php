@@ -62,11 +62,11 @@ class ChestInventory extends ContainerInventory{
 		return $this->holder;
 	}
 
-	protected function getOpenSound() : int{
+	protected function getOpenSound() : string{
 		return LevelSoundEventPacket::SOUND_CHEST_OPEN;
 	}
 
-	protected function getCloseSound() : int{
+	protected function getCloseSound() : string{
 		return LevelSoundEventPacket::SOUND_CHEST_CLOSED;
 	}
 

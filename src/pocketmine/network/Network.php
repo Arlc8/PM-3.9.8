@@ -29,6 +29,7 @@ namespace pocketmine\network;
 use pocketmine\event\server\NetworkInterfaceRegisterEvent;
 use pocketmine\event\server\NetworkInterfaceUnregisterEvent;
 use pocketmine\network\mcpe\protocol\PacketPool;
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\Server;
 use function spl_object_hash;
 
@@ -177,9 +178,62 @@ class Network{
 		}
 	}
 
+    /**
+     * Unblocks an IP address in the main interface.
+     * 
+     * @param string $address
+     */
 	public function unblockAddress(string $address){
 		foreach($this->advancedInterfaces as $interface){
 			$interface->unblockAddress($address);
 		}
 	}
+
+    /**
+     * @param int $playerProtocol
+     * 
+     * @return int
+     */
+	public final static function convertProtocol(int $playerProtocol) : int{
+		switch ($playerProtocol) {
+			case ProtocolInfo::PROTOCOL_361:
+				return ProtocolInfo::PROTOCOL_361;
+			case ProtocolInfo::PROTOCOL_360:
+				return ProtocolInfo::PROTOCOL_360;
+			default:
+				return ProtocolInfo::PROTOCOL_110;
+		}
+	}
+
+    /**
+     * @param int $playerProtocol
+     * 
+     * @return int
+     */
+	public static function convertChunkProtocol(int $playerProtocol) : int{
+		switch ($playerProtocol) {
+		    case ProtocolInfo::PROTOCOL_361:
+			case ProtocolInfo::PROTOCOL_360:
+				return ProtocolInfo::PROTOCOL_360;
+			default:
+				return ProtocolInfo::PROTOCOL_110;
+		}
+	}
+
+    /**
+     * @param int $playerProtocol
+     * 
+     * @return int
+     */
+	public static function convertCraftingProtocol(int $playerProtocol) : int{
+		switch ($playerProtocol) {
+		    case ProtocolInfo::PROTOCOL_361:
+				return ProtocolInfo::PROTOCOL_361;
+			case ProtocolInfo::PROTOCOL_360:
+				return ProtocolInfo::PROTOCOL_360;
+			default:
+				return ProtocolInfo::PROTOCOL_110;
+		}
+	}
+
 }

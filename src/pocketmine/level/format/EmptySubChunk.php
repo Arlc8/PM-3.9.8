@@ -125,7 +125,7 @@ class EmptySubChunk implements SubChunkInterface{
 
 	}
 
-	public function networkSerialize() : string{
+	public function networkSerialize(int $playerProtocol) : string{
 		return "\x00" . str_repeat("\x00", 6144);
 	}
 }

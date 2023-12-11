@@ -25,14 +25,21 @@ namespace pocketmine\level\format\io;
 
 use pocketmine\level\format\Chunk;
 use pocketmine\level\Level;
+
+use pocketmine\tile\Spawnable;
+
+use pocketmine\network\mcpe\protocol\ProtocolInfo;
 use pocketmine\network\mcpe\protocol\BatchPacket;
 use pocketmine\network\mcpe\protocol\LevelChunkPacket;
+
 use pocketmine\scheduler\AsyncTask;
+
 use pocketmine\Server;
+
 use function assert;
 use function strlen;
 
-class ChunkRequestTask extends AsyncTask{
+class ChunkRequestTask extends AsyncTask {
 
 	protected $levelId;
 
@@ -40,45 +47,77 @@ class ChunkRequestTask extends AsyncTask{
 	protected $chunkX;
 	protected $chunkZ;
 
+	protected $subChunkCount;
+
+    protected $tiles;
+
 	protected $compressionLevel;
+	
+	protected $protocols = [ProtocolInfo::PROTOCOL_360];
 
-	/** @var int */
-	private $subChunkCount;
-
-	public function __construct(Level $level, int $chunkX, int $chunkZ, Chunk $chunk){
+	public function __construct(Level $level, int $chunkX, int $chunkZ, Chunk $chunk) {
 		$this->levelId = $level->getId();
 		$this->compressionLevel = $level->getServer()->networkCompressionLevel;
 
-		$this->chunk = $chunk->networkSerialize();
 		$this->chunkX = $chunkX;
 		$this->chunkZ = $chunkZ;
+		$this->chunk = $chunk->fastSerialize();
 		$this->subChunkCount = $chunk->getSubChunkSendCount();
+
+        $tiles = "";
+		foreach ($chunk->getTiles() as $tile) {
+			if ($tile instanceof Spawnable) {
+				$tiles .= $tile->getSerializedSpawnCompound();
+			}
+		}
+
+        $this->tiles = $tiles;
 	}
 
-	public function onRun(){
-		$pk = LevelChunkPacket::withoutCache($this->chunkX, $this->chunkZ, $this->subChunkCount, $this->chunk);
+	public function onRun() {
+	    $chunk = Chunk::fastDeserialize($this->chunk);
 
-		$batch = new BatchPacket();
-		$batch->addPacket($pk);
-		$batch->setCompressionLevel($this->compressionLevel);
-		$batch->encode();
+	    $buffers = [];
+	    foreach ($this->protocols as $protocol) {
+	        $chunk = $chunk->networkSerialize($protocol) . $this->tiles;
 
-		$this->setResult($batch->buffer);
+	    	$pk = LevelChunkPacket::withoutCache($this->chunkX, $this->chunkZ, $this->subChunkCount, $chunk);
+	    	$pk->setProtocol($protocol);
+
+	    	$batch = new BatchPacket();
+	    	$batch->addPacket($pk);
+	    	$batch->setCompressionLevel($this->compressionLevel);
+	    	$batch->setProtocol($protocol);
+	    	$batch->encode();
+
+	    	$buffers[$protocol] = $batch->buffer;
+	    }
+
+        $this->setResult($buffers);
 	}
 
-	public function onCompletion(Server $server){
+	public function onCompletion(Server $server) {
 		$level = $server->getLevel($this->levelId);
-		if($level instanceof Level){
-			if($this->hasResult()){
-				$batch = new BatchPacket($this->getResult());
-				assert(strlen($batch->buffer) > 0);
-				$batch->isEncoded = true;
-				$level->chunkRequestCallback($this->chunkX, $this->chunkZ, $batch);
-			}else{
+		if ($level instanceof Level) {
+			if ($this->hasResult()) {
+			    $buffers = [];
+
+			    foreach ($this->getResult() as $protocol => $buffer) {
+			    	$batch = new BatchPacket($buffer);
+			    	assert(strlen($batch->buffer) > 0);
+			    	$batch->setProtocol($protocol);
+			    	$batch->isEncoded = true;
+
+			    	$buffers[$protocol] = $batch;
+			    }
+
+				$level->chunkRequestCallback($this->chunkX, $this->chunkZ, $buffers);
+			} else {
 				$server->getLogger()->error("Chunk request for world #" . $this->levelId . ", x=" . $this->chunkX . ", z=" . $this->chunkZ . " doesn't have any result data");
 			}
-		}else{
+		} else {
 			$server->getLogger()->debug("Dropped chunk task due to world not loaded");
 		}
 	}
+
 }

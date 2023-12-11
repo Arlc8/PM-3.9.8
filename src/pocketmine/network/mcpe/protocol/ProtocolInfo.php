@@ -23,32 +23,42 @@ declare(strict_types=1);
 
 namespace pocketmine\network\mcpe\protocol;
 
-/**
- * Version numbers and packet IDs for the current Minecraft PE protocol
- */
-interface ProtocolInfo{
-
-	/**
-	 * NOTE TO DEVELOPERS
-	 * Do not waste your time or ours submitting pull requests changing game and/or protocol version numbers.
-	 * Pull requests changing game and/or protocol version numbers will be closed.
-	 *
-	 * This file is generated automatically, do not edit it manually.
-	 */
+interface ProtocolInfo {
 
 	/**
 	 * Actual Minecraft: PE protocol version
 	 */
-	public const CURRENT_PROTOCOL = 361;
-	/**
-	 * Current Minecraft PE version reported by the server. This is usually the earliest currently supported version.
-	 */
-	public const MINECRAFT_VERSION = 'v1.12.0';
-	/**
-	 * Version number sent to clients in ping responses.
-	 */
-	public const MINECRAFT_VERSION_NETWORK = '1.12.0';
 
+	public const CURRENT_PROTOCOL = 110;
+	public const ACCEPTED_PROTOCOLS = [ProtocolInfo::PROTOCOL_361];
+	public const MINECRAFT_VERSION = 'v1.x';
+	public const MINECRAFT_VERSION_NETWORK = '1.x';
+
+	/** 1.0.x - 1.1.x OLD */
+	public const PROTOCOL_101 = 101; // 1.0.3.0, 1.0.4, 1.0.4.0
+	public const PROTOCOL_102 = 102; // 1.0.4.1, 1.0.4
+	public const PROTOCOL_105 = 105; // 1.0.5.0, 1.0.5.3, 1.0.5.11, 1.0.5, 1.0.6.0
+	public const PROTOCOL_106 = 106; // 1.0.6
+	public const PROTOCOL_107 = 107; // 1.0.7, 1.0.8, 1.0.9
+	public const PROTOCOL_110 = 110; // 1.1.0.0, 1.1.0.1, 1.1.0.2, 1.1.0.3, 1.1.0.4, 1.1.0.5
+	public const PROTOCOL_111 = 111; // 1.1.0.8
+	public const PROTOCOL_112 = 112; // 1.1.0.9
+	public const PROTOCOL_113 = 113; // 1.1.0, 1.1.1.0, 1.1.1.1, 1.1.1, 1.1.2, 1.1.3.0, 1.1.3.1, 1.1.3, 1.1.4, 1.1.5, 1.1.7
+	/** OUTDATED (supporting will be removed with next release, may didn't work properly)*/
+	public const PROTOCOL_120 = 120; // 1.2.0.xx (beta)
+	public const PROTOCOL_121 = 121; // 1.2.0.xx (beta)
+	public const PROTOCOL_130 = 130; // 1.2.0.xx (beta)
+	public const PROTOCOL_131 = 131; // 1.2.0.xx (beta)
+	public const PROTOCOL_132 = 132; // 1.2.0.15 (beta)
+	public const PROTOCOL_133 = 133; // 1.2.0.18 (beta)
+	/** 1.2 BETAS */
+	public const PROTOCOL_280 = 280; // 1.6.0.1
+	public const PROTOCOL_360 = 360;
+	public const PROTOCOL_361 = 361;
+
+	/**
+	 * Minecraft: PE packets
+	 */
 	public const LOGIN_PACKET = 0x01;
 	public const PLAY_STATUS_PACKET = 0x02;
 	public const SERVER_TO_CLIENT_HANDSHAKE_PACKET = 0x03;
@@ -64,7 +74,6 @@ interface ProtocolInfo{
 	public const ADD_ACTOR_PACKET = 0x0d;
 	public const REMOVE_ACTOR_PACKET = 0x0e;
 	public const ADD_ITEM_ACTOR_PACKET = 0x0f;
-
 	public const TAKE_ITEM_ACTOR_PACKET = 0x11;
 	public const MOVE_ACTOR_ABSOLUTE_PACKET = 0x12;
 	public const MOVE_PLAYER_PACKET = 0x13;
@@ -72,7 +81,6 @@ interface ProtocolInfo{
 	public const UPDATE_BLOCK_PACKET = 0x15;
 	public const ADD_PAINTING_PACKET = 0x16;
 	public const EXPLODE_PACKET = 0x17;
-	public const LEVEL_SOUND_EVENT_PACKET_V1 = 0x18;
 	public const LEVEL_EVENT_PACKET = 0x19;
 	public const BLOCK_EVENT_PACKET = 0x1a;
 	public const ACTOR_EVENT_PACKET = 0x1b;
@@ -159,16 +167,13 @@ interface ProtocolInfo{
 	public const SET_SCORE_PACKET = 0x6c;
 	public const LAB_TABLE_PACKET = 0x6d;
 	public const UPDATE_BLOCK_SYNCED_PACKET = 0x6e;
-	public const MOVE_ACTOR_DELTA_PACKET = 0x6f;
 	public const SET_SCOREBOARD_IDENTITY_PACKET = 0x70;
 	public const SET_LOCAL_PLAYER_AS_INITIALIZED_PACKET = 0x71;
 	public const UPDATE_SOFT_ENUM_PACKET = 0x72;
 	public const NETWORK_STACK_LATENCY_PACKET = 0x73;
-
 	public const SCRIPT_CUSTOM_EVENT_PACKET = 0x75;
 	public const SPAWN_PARTICLE_EFFECT_PACKET = 0x76;
 	public const AVAILABLE_ACTOR_IDENTIFIERS_PACKET = 0x77;
-	public const LEVEL_SOUND_EVENT_PACKET_V2 = 0x78;
 	public const NETWORK_CHUNK_PUBLISHER_UPDATE_PACKET = 0x79;
 	public const BIOME_DEFINITION_LIST_PACKET = 0x7a;
 	public const LEVEL_SOUND_EVENT_PACKET = 0x7b;
@@ -185,5 +190,4 @@ interface ProtocolInfo{
 	public const UPDATE_BLOCK_PROPERTIES_PACKET = 0x86;
 	public const CLIENT_CACHE_BLOB_STATUS_PACKET = 0x87;
 	public const CLIENT_CACHE_MISS_RESPONSE_PACKET = 0x88;
-
 }

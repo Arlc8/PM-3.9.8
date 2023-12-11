@@ -32,7 +32,6 @@ use pocketmine\level\Level;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\nbt\tag\StringTag;
 use pocketmine\Player;
-use pocketmine\tile\Spawnable;
 use pocketmine\tile\Tile;
 use pocketmine\utils\BinaryStream;
 use function array_fill;
@@ -861,23 +860,19 @@ class Chunk{
 
 	/**
 	 * Serializes the chunk for sending to players
-	 *
+	 * 
+	 * @param int $playerProtocol
+	 * 
 	 * @return string
 	 */
-	public function networkSerialize() : string{
+	public function networkSerialize(int $playerProtocol) : string{
 		$result = "";
 		$subChunkCount = $this->getSubChunkSendCount();
 		for($y = 0; $y < $subChunkCount; ++$y){
-			$result .= $this->subChunks[$y]->networkSerialize();
+			$result .= $this->subChunks[$y]->networkSerialize($playerProtocol);
 		}
 		$result .= $this->biomeIds . chr(0); //border block array count
 		//Border block entry format: 1 byte (4 bits X, 4 bits Z). These are however useless since they crash the regular client.
-
-		foreach($this->tiles as $tile){
-			if($tile instanceof Spawnable){
-				$result .= $tile->getSerializedSpawnCompound();
-			}
-		}
 
 		return $result;
 	}

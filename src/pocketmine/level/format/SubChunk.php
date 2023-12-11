@@ -210,7 +210,7 @@ class SubChunk implements SubChunkInterface{
 		$this->blockLight = $data;
 	}
 
-	public function networkSerialize() : string{
+	public function networkSerialize(int $playerProtocol) : string{
 		return "\x00" . $this->ids . $this->data;
 	}
 

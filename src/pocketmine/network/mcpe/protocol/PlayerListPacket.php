@@ -54,6 +54,8 @@ class PlayerListPacket extends DataPacket{
 			$entry = new PlayerListEntry();
 
 			if($this->type === self::TYPE_ADD){
+			    $emptySkin = str_repeat("\x00", 8192);
+			    
 				$entry->uuid = $this->getUUID();
 				$entry->entityUniqueId = $this->getEntityUniqueId();
 				$entry->username = $this->getString();
@@ -90,10 +92,30 @@ class PlayerListPacket extends DataPacket{
 				$this->putEntityUniqueId($entry->entityUniqueId);
 				$this->putString($entry->username);
 				$this->putString($entry->skin->getSkinId());
-				$this->putString($entry->skin->getSkinData());
-				$this->putString($entry->skin->getCapeData());
-				$this->putString($entry->skin->getGeometryName());
-				$this->putString($entry->skin->getGeometryData());
+				
+				$skinData = !empty($entry->skin->getSkinData()) ? $entry->skin->getSkinData() : $emptySkin;
+				if (empty($entry->skin->getGeometryData()) && strlen($skinData) == 8192) {
+					$skinData = $this->duplicateArmAndLeg($skinData);
+				}
+				$this->putString($skinData);
+				
+				$capeData = $entry->skin->getCapeData();
+				$this->putString($capeData);
+				
+				$skinGeometryName = strtolower($entry->skin->getGeometryName());
+				$skinGeometryData = $entry->skin->getGeometryData();
+				$tempData = json_decode($skinGeometryData, true);
+				if (is_array($tempData)) {
+					foreach ($tempData as $key => $value) {
+						unset($tempData[$key]);
+						$tempData[strtolower($key)] = $value;
+					}
+					
+					$skinGeometryData = json_encode($tempData);
+				}
+				$this->putString($skinGeometryName);
+				$this->putString($this->prepareGeometryDataForOld($skinGeometryData));
+				
 				$this->putString($entry->xboxUserId);
 				$this->putString($entry->platformChatId);
 			}else{

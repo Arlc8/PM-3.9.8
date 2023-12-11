@@ -100,7 +100,6 @@ class ArmorInventory extends BaseInventory{
 		$pk->chest = $this->getChestplate();
 		$pk->legs = $this->getLeggings();
 		$pk->feet = $this->getBoots();
-		$pk->encode();
 
 		foreach($target as $player){
 			if($player === $this->getHolder()){
@@ -128,7 +127,6 @@ class ArmorInventory extends BaseInventory{
 		$pk->chest = $this->getChestplate();
 		$pk->legs = $this->getLeggings();
 		$pk->feet = $this->getBoots();
-		$pk->encode();
 
 		foreach($target as $player){
 			if($player === $this->getHolder()){

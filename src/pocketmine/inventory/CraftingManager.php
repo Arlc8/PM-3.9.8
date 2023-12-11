@@ -24,10 +24,12 @@ declare(strict_types=1);
 namespace pocketmine\inventory;
 
 use pocketmine\item\Item;
-use pocketmine\network\mcpe\protocol\BatchPacket;
-use pocketmine\network\mcpe\protocol\CraftingDataPacket;
+use pocketmine\Player;
 use pocketmine\Server;
+use pocketmine\crafting\CraftingDataBuildTask;
 use pocketmine\timings\Timings;
+use function is_null;
+use function count;
 use function array_map;
 use function file_get_contents;
 use function json_decode;
@@ -43,8 +45,12 @@ class CraftingManager{
 	/** @var FurnaceRecipe[] */
 	protected $furnaceRecipes = [];
 
-	/** @var BatchPacket|null */
-	private $craftingDataCache;
+    /** @var Player[] */
+    private $craftingDataQueue = [];
+    /** @var CraftingDataBuildTask|null */
+    private $craftingDataTask = null;
+    /** @var BatchPacket|null */
+    private $craftingData;
 
 	public function __construct(){
 		$this->init();
@@ -88,56 +94,89 @@ class CraftingManager{
 					break;
 			}
 		}
-
-		$this->buildCraftingDataCache();
 	}
 
-	/**
-	 * Rebuilds the cached CraftingDataPacket.
-	 */
-	public function buildCraftingDataCache() : void{
-		Timings::$craftingDataCacheRebuildTimer->startTiming();
-		$pk = new CraftingDataPacket();
-		$pk->cleanRecipes = true;
+    /**
+     * @param Player $p
+     * 
+     * @return void
+     */
+    public function sendCraftingData(Player $p) : void{
+        Timings::$craftingDataCacheRebuildTimer->startTiming();
 
-		foreach($this->shapelessRecipes as $list){
-			foreach($list as $recipe){
-				$pk->addShapelessRecipe($recipe);
-			}
-		}
-		foreach($this->shapedRecipes as $list){
-			foreach($list as $recipe){
-				$pk->addShapedRecipe($recipe);
-			}
-		}
+        try {
+            $craftingData = $this->getCraftingData();
 
-		foreach($this->furnaceRecipes as $recipe){
-			$pk->addFurnaceRecipe($recipe);
-		}
+            if ($craftingData === null) {
+                $this->craftingDataQueue[$p->getId()] = $p;
+                
+                return;
+            }
 
-		$pk->encode();
+            $p->dataPacket($craftingData[$p->getCraftingProtocol()]);
+        } finally {
+            Timings::$craftingDataCacheRebuildTimer->stopTiming();
+        }
+    }
 
-		$batch = new BatchPacket();
-		$batch->addPacket($pk);
-		$batch->setCompressionLevel(Server::getInstance()->networkCompressionLevel);
-		$batch->encode();
+    /**
+     * @return ?array
+     */
+    public function getCraftingData() : ?array{
+        return $this->craftingData;
+    }
 
-		$this->craftingDataCache = $batch;
-		Timings::$craftingDataCacheRebuildTimer->stopTiming();
-	}
+    /**
+     * @param array $buffers
+     * 
+     * @return void
+     */
+    public function setCraftingData(array $buffers) : void{
+        $this->craftingData = $buffers;
+    }
 
-	/**
-	 * Returns a pre-compressed CraftingDataPacket for sending to players. Rebuilds the cache if it is not found.
-	 *
-	 * @return BatchPacket
-	 */
-	public function getCraftingDataPacket() : BatchPacket{
-		if($this->craftingDataCache === null){
-			$this->buildCraftingDataCache();
-		}
+    /**
+     * @param array $buffers
+     * 
+     * @return void
+     */
+    public function sendCraftingDataToQueue(array $buffers) : void{
+        foreach ($this->craftingDataQueue as $p) {
+            $p->dataPacket($buffers[$p->getCraftingProtocol()]);
+        }
 
-		return $this->craftingDataCache;
-	}
+        if (!is_null($this->craftingDataTask)) {
+            $this->craftingDataTask->cancelRun();
+        }
+
+        $this->craftingDataQueue = [];
+        $this->craftingDataTask = null;
+    }
+
+    /**
+     * @return void
+     */
+    public function scheduleQueueUpdate() : void{
+        if (count($this->craftingDataQueue) > 0) {
+            if (!is_null($this->craftingDataTask)) {
+                if ($this->craftingDataTask->isCrashed()) {
+                    $this->craftingDataTask = null;
+                    Server::getInstance()->getLogger()->error("Failed to prepare CraftingDataPacket, retrying...");
+                }
+
+                return;
+            }
+
+            if (!is_null($this->getCraftingData())) {
+                $this->sendCraftingDataToQueue();
+
+                return;
+            }
+
+            Server::getInstance()->getAsyncPool()->submitTask($task = new CraftingDataBuildTask($this->shapelessRecipes, $this->shapedRecipes, $this->furnaceRecipes, Server::getInstance()->networkCompressionLevel));
+            $this->craftingDataTask = $task;
+        }
+    }
 
 	/**
 	 * Function used to arrange Shapeless Recipe ingredient lists into a consistent order.
@@ -216,7 +255,7 @@ class CraftingManager{
 	public function registerShapedRecipe(ShapedRecipe $recipe) : void{
 		$this->shapedRecipes[self::hashOutputs($recipe->getResults())][] = $recipe;
 
-		$this->craftingDataCache = null;
+		$this->craftingData = null;
 	}
 
 	/**
@@ -225,7 +264,7 @@ class CraftingManager{
 	public function registerShapelessRecipe(ShapelessRecipe $recipe) : void{
 		$this->shapelessRecipes[self::hashOutputs($recipe->getResults())][] = $recipe;
 
-		$this->craftingDataCache = null;
+		$this->craftingData = null;
 	}
 
 	/**
@@ -234,7 +273,7 @@ class CraftingManager{
 	public function registerFurnaceRecipe(FurnaceRecipe $recipe) : void{
 		$input = $recipe->getInput();
 		$this->furnaceRecipes[$input->getId() . ":" . ($input->hasAnyDamageValue() ? "?" : $input->getDamage())] = $recipe;
-		$this->craftingDataCache = null;
+		$this->craftingData = null;
 	}
 
 	/**

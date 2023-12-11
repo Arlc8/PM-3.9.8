@@ -25,23 +25,22 @@ namespace pocketmine\network\mcpe\protocol;
 
 use pocketmine\utils\Binary;
 
-
+use pocketmine\network\mcpe\multiversion\TextEnums;
 use pocketmine\network\mcpe\NetworkSession;
 use function count;
 
 class TextPacket extends DataPacket{
 	public const NETWORK_ID = ProtocolInfo::TEXT_PACKET;
 
-	public const TYPE_RAW = 0;
-	public const TYPE_CHAT = 1;
-	public const TYPE_TRANSLATION = 2;
-	public const TYPE_POPUP = 3;
-	public const TYPE_JUKEBOX_POPUP = 4;
-	public const TYPE_TIP = 5;
-	public const TYPE_SYSTEM = 6;
-	public const TYPE_WHISPER = 7;
-	public const TYPE_ANNOUNCEMENT = 8;
-	public const TYPE_JSON = 9;
+	public const TYPE_RAW = "TYPE_RAW";
+	public const TYPE_CHAT = "TYPE_CHAT";
+	public const TYPE_TRANSLATION = "TYPE_TRANSLATION";
+	public const TYPE_POPUP = "TYPE_POPUP";
+	public const TYPE_JUKEBOX_POPUP = "TYPE_JUKEBOX_POPUP";
+	public const TYPE_TIP = "TYPE_TIP";
+	public const TYPE_SYSTEM = "TYPE_SYSTEM";
+	public const TYPE_WHISPER = "TYPE_WHISPER";
+	public const TYPE_ANNOUNCEMENT = "TYPE_ANNOUNCEMENT";
 
 	/** @var int */
 	public $type;
@@ -60,6 +59,7 @@ class TextPacket extends DataPacket{
 
 	protected function decodePayload(){
 		$this->type = (\ord($this->get(1)));
+		$this->type = TextEnums::getMessageType($this->getProtocol(), $this->type);
 		$this->needsTranslation = (($this->get(1) !== "\x00"));
 		switch($this->type){
 			case self::TYPE_CHAT:
@@ -70,7 +70,6 @@ class TextPacket extends DataPacket{
 			case self::TYPE_RAW:
 			case self::TYPE_TIP:
 			case self::TYPE_SYSTEM:
-			case self::TYPE_JSON:
 				$this->message = $this->getString();
 				break;
 
@@ -90,7 +89,8 @@ class TextPacket extends DataPacket{
 	}
 
 	protected function encodePayload(){
-		($this->buffer .= \chr($this->type));
+		$typeId = TextEnums::getMessageTypeId($this->getProtocol(), $this->type);
+		($this->buffer .= \chr($typeId));
 		($this->buffer .= ($this->needsTranslation ? "\x01" : "\x00"));
 		switch($this->type){
 			case self::TYPE_CHAT:
@@ -101,7 +101,6 @@ class TextPacket extends DataPacket{
 			case self::TYPE_RAW:
 			case self::TYPE_TIP:
 			case self::TYPE_SYSTEM:
-			case self::TYPE_JSON:
 				$this->putString($this->message);
 				break;
 

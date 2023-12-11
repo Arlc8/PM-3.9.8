@@ -37,12 +37,9 @@ class AddActorPacket extends DataPacket{
 	public const NETWORK_ID = ProtocolInfo::ADD_ACTOR_PACKET;
 
 	/*
-	 * Really really really really really nasty hack, to preserve backwards compatibility.
-	 * We can't transition to string IDs within 3.x because the network IDs (the integer ones) are exposed
-	 * to the API in some places (for god's sake shoghi).
-	 *
-	 * TODO: remove this on 4.0
-	 */
+	* Thanks dktapps for this hack)
+	* By: sssss2281
+	*/
 	public const LEGACY_ID_MAP_BC = [
 		EntityIds::NPC => "minecraft:npc",
 		EntityIds::PLAYER => "minecraft:player",

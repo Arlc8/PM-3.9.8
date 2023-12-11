@@ -199,7 +199,9 @@ interface SubChunkInterface{
 	public function setBlockLightArray(string $data);
 
 	/**
+	 * @param int $playerProtocol
+	 * 
 	 * @return string
 	 */
-	public function networkSerialize() : string;
+	public function networkSerialize(int $playerProtocol) : string;
 }

@@ -30,6 +30,7 @@ use pocketmine\command\utils\CommandException;
 use pocketmine\lang\TextContainer;
 use pocketmine\lang\TranslationContainer;
 use pocketmine\permission\PermissionManager;
+use pocketmine\Player;
 use pocketmine\Server;
 use pocketmine\timings\TimingsHandler;
 use pocketmine\utils\TextFormat;
@@ -70,6 +71,9 @@ abstract class Command{
 	/** @var string */
 	private $permissionMessage = null;
 
+    /** @var array|null */
+    private $commandData;
+
 	/** @var TimingsHandler */
 	public $timings;
 
@@ -80,6 +84,7 @@ abstract class Command{
 	 * @param string[] $aliases
 	 */
 	public function __construct(string $name, string $description = "", string $usageMessage = null, array $aliases = []){
+	    $this->generateDefaultData();
 		$this->name = $name;
 		$this->setLabel($name);
 		$this->setDescription($description);
@@ -96,6 +101,12 @@ abstract class Command{
 	 * @throws CommandException
 	 */
 	abstract public function execute(CommandSender $sender, string $commandLabel, array $args);
+
+	final public function generateDefaultData() : void{
+		if ($this->commandData === null) {
+			$this->commandData = json_decode(file_get_contents(Server::getInstance()->getFilePath() . "src/pocketmine/resources/command_default.json"), true);
+		}
+	}
 
 	/**
 	 * @return string
@@ -324,6 +335,23 @@ abstract class Command{
 				}
 			}
 		}
+	}
+
+    /**
+     * @param Player $player
+     * 
+     * @return array
+     */
+	public function generateCustomCommandData(Player $player) : array{
+		if(!$this->testPermissionSilent($player)){
+			return null;
+		}
+
+		$customData = $this->commandData;
+		$customData["aliases"] = $this->getAliases();
+		$customData["description"] = $player->getServer()->getLanguage()->translateString($this->getDescription());
+
+		return $customData;
 	}
 
 	/**

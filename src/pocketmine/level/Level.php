@@ -73,7 +73,6 @@ use pocketmine\metadata\MetadataValue;
 use pocketmine\nbt\tag\ListTag;
 use pocketmine\nbt\tag\StringTag;
 use pocketmine\network\mcpe\protocol\AddActorPacket;
-use pocketmine\network\mcpe\protocol\BatchPacket;
 use pocketmine\network\mcpe\protocol\DataPacket;
 use pocketmine\network\mcpe\protocol\LevelEventPacket;
 use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
@@ -553,15 +552,15 @@ class Level implements ChunkManager, Metadatable{
 	 * Broadcasts a LevelSoundEvent to players in the area.
 	 *
 	 * @param Vector3 $pos
-	 * @param int     $soundId
+	 * @param string     $soundName
 	 * @param int     $extraData
 	 * @param int     $entityTypeId
 	 * @param bool    $isBabyMob
 	 * @param bool    $disableRelativeVolume If true, all players receiving this sound-event will hear the sound at full volume regardless of distance
 	 */
-	public function broadcastLevelSoundEvent(Vector3 $pos, int $soundId, int $extraData = -1, int $entityTypeId = -1, bool $isBabyMob = false, bool $disableRelativeVolume = false){
+	public function broadcastLevelSoundEvent(Vector3 $pos, string $soundName, int $extraData = -1, int $entityTypeId = -1, bool $isBabyMob = false, bool $disableRelativeVolume = false){
 		$pk = new LevelSoundEventPacket();
-		$pk->sound = $soundId;
+		$pk->sound = $soundName;
 		$pk->extraData = $extraData;
 		$pk->entityType = AddActorPacket::LEGACY_ID_MAP_BC[$entityTypeId] ?? ":";
 		$pk->isBabyMob = $isBabyMob;
@@ -763,10 +762,15 @@ class Level implements ChunkManager, Metadatable{
 	 * @param Player ...$targets If empty, will send to all players in the level.
 	 */
 	public function sendTime(Player ...$targets){
+	    $targets = count($targets) > 0 ? $targets : $this->players;
+	    if(empty($targets)){
+	        return;
+	    }
+
 		$pk = new SetTimePacket();
 		$pk->time = $this->time & 0xffffffff; //avoid overflowing the field, since the packet uses an int32
 
-		$this->server->broadcastPacket(count($targets) > 0 ? $targets : $this->players, $pk);
+		$this->server->broadcastPacket($targets, $pk);
 	}
 
 	/**
@@ -2640,8 +2644,8 @@ class Level implements ChunkManager, Metadatable{
 		if(isset($this->chunkSendQueue[$index = ((($x) & 0xFFFFFFFF) << 32) | (( $z) & 0xFFFFFFFF)])){
 			foreach($this->chunkSendQueue[$index] as $player){
 				/** @var Player $player */
-				if($player->isConnected() and isset($player->usedChunks[$index])){
-					$player->sendChunk($x, $z, $this->chunkCache[$index]);
+				if($player->isConnected() and isset($player->usedChunks[$index]) and isset($this->chunkCache[$index][$player->getChunkProtocol()])){
+				    $player->sendChunk($x, $z, $this->chunkCache[$index][$player->getChunkProtocol()]);
 				}
 			}
 			unset($this->chunkSendQueue[$index]);
@@ -2686,13 +2690,13 @@ class Level implements ChunkManager, Metadatable{
 		}
 	}
 
-	public function chunkRequestCallback(int $x, int $z, BatchPacket $payload){
+	public function chunkRequestCallback(int $x, int $z, array $buffers){
 		$this->timings->syncChunkSendTimer->startTiming();
 
 		$index = ((($x) & 0xFFFFFFFF) << 32) | (( $z) & 0xFFFFFFFF);
 		unset($this->chunkSendTasks[$index]);
 
-		$this->chunkCache[$index] = $payload;
+		$this->chunkCache[$index] = $buffers;
 		$this->sendChunkFromCache($x, $z);
 		if(!$this->server->getMemoryManager()->canUseChunkCache()){
 			unset($this->chunkCache[$index]);
@@ -3108,39 +3112,34 @@ class Level implements ChunkManager, Metadatable{
 	}
 
 	public function populateChunk(int $x, int $z, bool $force = false) : bool{
-		if(isset($this->chunkPopulationQueue[$index = ((($x) & 0xFFFFFFFF) << 32) | (( $z) & 0xFFFFFFFF)]) or (count($this->chunkPopulationQueue) >= $this->chunkPopulationQueueSize and !$force)){
+		if(isset($this->chunkPopulationQueue[$index = Level::chunkHash($x, $z)]) or (count($this->chunkPopulationQueue) >= $this->chunkPopulationQueueSize and !$force)){
 			return false;
 		}
 		for($xx = -1; $xx <= 1; ++$xx){
 			for($zz = -1; $zz <= 1; ++$zz){
-				if(isset($this->chunkPopulationLock[((($x + $xx) & 0xFFFFFFFF) << 32) | (( $z + $zz) & 0xFFFFFFFF)])){
+				if(isset($this->chunkPopulationLock[Level::chunkHash($x + $xx, $z + $zz)])){
 					return false;
 				}
 			}
 		}
 
 		$chunk = $this->getChunk($x, $z, true);
-		if(!$chunk->isPopulated()){
+		if (!$chunk->isPopulated()) {
 			Timings::$populationTimer->startTiming();
-
 			$this->chunkPopulationQueue[$index] = true;
-			for($xx = -1; $xx <= 1; ++$xx){
-				for($zz = -1; $zz <= 1; ++$zz){
-					$this->chunkPopulationLock[((($x + $xx) & 0xFFFFFFFF) << 32) | (( $z + $zz) & 0xFFFFFFFF)] = true;
+			for ($xx = -1; $xx <= 1; ++$xx) {
+				for ($zz = -1; $zz <= 1; ++$zz) {
+					$this->chunkPopulationLock[Level::chunkHash($x + $xx, $z + $zz)] = true;
 				}
 			}
-
 			$task = new PopulationTask($this, $chunk);
 			$workerId = $this->server->getAsyncPool()->selectWorker();
 			if(!isset($this->generatorRegisteredWorkers[$workerId])){
 				$this->registerGeneratorToWorker($workerId);
 			}
 			$this->server->getAsyncPool()->submitTaskToWorker($task, $workerId);
-
-			Timings::$populationTimer->stopTiming();
 			return false;
 		}
-
 		return true;
 	}
 

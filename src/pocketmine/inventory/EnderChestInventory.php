@@ -59,11 +59,11 @@ class EnderChestInventory extends ChestInventory{
 		$this->holder->setLevel($enderChest->getLevel());
 	}
 
-	protected function getOpenSound() : int{
+	protected function getOpenSound() : string{
 		return LevelSoundEventPacket::SOUND_ENDERCHEST_OPEN;
 	}
 
-	protected function getCloseSound() : int{
+	protected function getCloseSound() : string{
 		return LevelSoundEventPacket::SOUND_ENDERCHEST_CLOSED;
 	}
 

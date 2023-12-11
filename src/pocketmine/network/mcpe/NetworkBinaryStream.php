@@ -633,4 +633,57 @@ class NetworkBinaryStream extends BinaryStream{
 		($this->buffer .= (\pack("G", $structureSettings->integrityValue)));
 		($this->buffer .= (\pack("N", $structureSettings->integritySeed)));
 	}
+
+	protected function duplicateArmAndLeg(string $skinData) : string{
+		static $parts = [
+			["baseXOffset" => 4, "baseZOffset" => 16, "targetXOffset" => 20, "targetZOffset" => 48, "width" => 4, "height" => 4, "isRevers" => true],
+			["baseXOffset" => 8, "baseZOffset" => 16, "targetXOffset" => 24, "targetZOffset" => 48, "width" => 4, "height" => 4, "isRevers" => true],
+			["baseXOffset" => 0, "baseZOffset" => 20, "targetXOffset" => 24, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 4, "baseZOffset" => 20, "targetXOffset" => 20, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 8, "baseZOffset" => 20, "targetXOffset" => 16, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 12, "baseZOffset" => 20, "targetXOffset" => 28, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 44, "baseZOffset" => 16, "targetXOffset" => 36, "targetZOffset" => 48, "width" => 4, "height" => 4, "isRevers" => true],
+			["baseXOffset" => 48, "baseZOffset" => 16, "targetXOffset" => 40, "targetZOffset" => 48, "width" => 4, "height" => 4, "isRevers" => true],
+			["baseXOffset" => 40, "baseZOffset" => 20, "targetXOffset" => 40, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 44, "baseZOffset" => 20, "targetXOffset" => 36, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 48, "baseZOffset" => 20, "targetXOffset" => 32, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true],
+			["baseXOffset" => 52, "baseZOffset" => 20, "targetXOffset" => 44, "targetZOffset" => 52, "width" => 4, "height" => 12, "isRevers" => true]
+		];
+
+		$skinData .= str_repeat("\x00", 8192);
+		foreach ($parts as $part) {
+			for ($z = 0; $z < $part["height"]; $z++) {
+				$baseZOffset = ($part["baseZOffset"] + $z) * 64 * 4;
+				$targetZOffset = ($part["targetZOffset"] + $z) * 64 * 4;
+				for ($x = 0; $x < $part["width"]; $x++) {
+					$baseOffset = $baseZOffset + ($part["baseXOffset"] + $x) * 4;
+
+					if ($part["isRevers"]) {
+						$targetOffset = $targetZOffset + ($part["targetXOffset"] + ($part["width"] - $x - 1)) * 4;
+					} else {
+						$targetOffset = $targetZOffset + ($part["targetXOffset"] + $x) * 4;
+					}
+
+					$skinData[$targetOffset] = $skinData[$baseOffset];
+					$skinData[$targetOffset + 1] = $skinData[$baseOffset + 1];
+					$skinData[$targetOffset + 2] = $skinData[$baseOffset + 2];
+					$skinData[$targetOffset + 3] = $skinData[$baseOffset + 3];
+				}
+			}
+		}
+
+		return $skinData;
+	}
+
+	protected function prepareGeometryDataForOld(?string $skinGeometryData) : ?string{
+		if (!empty($skinGeometryData)) {
+			if (($tempData = @json_decode($skinGeometryData, true))) {
+				unset($tempData["format_version"]);
+
+				return json_encode($tempData);
+			}
+		}
+
+		return $skinGeometryData;
+	}
 }

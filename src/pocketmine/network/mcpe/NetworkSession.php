@@ -77,8 +77,6 @@ use pocketmine\network\mcpe\protocol\LevelChunkPacket;
 use pocketmine\network\mcpe\protocol\LevelEventGenericPacket;
 use pocketmine\network\mcpe\protocol\LevelEventPacket;
 use pocketmine\network\mcpe\protocol\LevelSoundEventPacket;
-use pocketmine\network\mcpe\protocol\LevelSoundEventPacketV1;
-use pocketmine\network\mcpe\protocol\LevelSoundEventPacketV2;
 use pocketmine\network\mcpe\protocol\LoginPacket;
 use pocketmine\network\mcpe\protocol\MapCreateLockedCopyPacket;
 use pocketmine\network\mcpe\protocol\MapInfoRequestPacket;
@@ -88,7 +86,6 @@ use pocketmine\network\mcpe\protocol\MobEquipmentPacket;
 use pocketmine\network\mcpe\protocol\ModalFormRequestPacket;
 use pocketmine\network\mcpe\protocol\ModalFormResponsePacket;
 use pocketmine\network\mcpe\protocol\MoveActorAbsolutePacket;
-use pocketmine\network\mcpe\protocol\MoveActorDeltaPacket;
 use pocketmine\network\mcpe\protocol\MovePlayerPacket;
 use pocketmine\network\mcpe\protocol\NetworkChunkPublisherUpdatePacket;
 use pocketmine\network\mcpe\protocol\NetworkStackLatencyPacket;
@@ -248,10 +245,6 @@ abstract class NetworkSession{
 	}
 
 	public function handleExplode(ExplodePacket $packet) : bool{
-		return false;
-	}
-
-	public function handleLevelSoundEventPacketV1(LevelSoundEventPacketV1 $packet) : bool{
 		return false;
 	}
 
@@ -599,10 +592,6 @@ abstract class NetworkSession{
 		return false;
 	}
 
-	public function handleMoveActorDelta(MoveActorDeltaPacket $packet) : bool{
-		return false;
-	}
-
 	public function handleSetScoreboardIdentity(SetScoreboardIdentityPacket $packet) : bool{
 		return false;
 	}
@@ -628,10 +617,6 @@ abstract class NetworkSession{
 	}
 
 	public function handleAvailableActorIdentifiers(AvailableActorIdentifiersPacket $packet) : bool{
-		return false;
-	}
-
-	public function handleLevelSoundEventPacketV2(LevelSoundEventPacketV2 $packet) : bool{
 		return false;
 	}
 
